@@ -1,0 +1,70 @@
+<?php
+
+/**
+ * Implements hook_preprocess_HOOK()
+ */
+function structured_data_preprocess_node(&$variables) {
+  if ($variables['type'] != 'article') {
+    return;
+  }
+  if (!isset($variables['field_main_image']) || empty($variables['field_main_image'])) {
+    return;
+  }
+
+  $node = $variables['node'];
+
+  $image_uri      = $variables['field_main_image'][LANGUAGE_NONE][0]['uri'];
+  $style          = 'og_image';
+  $derivative_uri = image_style_url($style, $image_uri);
+  $image_url      = file_create_url($derivative_uri);
+
+  $data = [
+    '@context'      => 'https://schema.org',
+    '@type'         => 'NewsArticle',
+    'headline'      => mb_strimwidth($variables['title'], 0, 106, '...'),
+    'datePublished' => format_date($variables['created'], 'long', '','UTC'),
+    'dateModified'  => format_date($variables['changed'], 'long', '', 'UTC'),
+    'image' => [
+      $image_url,
+    ],
+    'mainEntityOfPage' => [
+      '@type' => 'WebPage',
+      '@id' => 'https://google.com/article'
+    ],
+  ];
+
+  if ($summary = $variables['body'][0]['summary']) {
+    $data['description'] = strip_tags($summary);
+  }
+
+  $node_author = user_load($node->uid);
+  if ($node_author && ($node_author->field_first_name || $node_author->field_last_name)) {
+    $f_name = $node_author->field_first_name['und'][0]['safe_value'];
+    $l_name = $node_author->field_last_name['und'][0]['safe_value'];
+    $data['author'] = [
+      '@type' => 'Person',
+      'name' => $f_name . ' ' . $l_name,
+    ];
+  }
+
+  $site_name = variable_get('site_name');
+  $site_slogan = variable_get('site_slogan');
+  $data['publisher'] = [
+    '@type' => 'Organization',
+    'name' => $site_name . ' ' . $site_slogan,
+    'logo' => [
+      '@type' => 'ImageObject',
+      'url' => file_create_url(theme_get_setting('logo')),
+    ]
+  ];
+
+  $script = [
+    '#tag' => 'script',
+    '#type' => 'html_tag',
+    '#value' => json_encode($data),
+    '#attributes' => [
+      'type' => 'application/ld+json',
+    ],
+  ];
+  $variables['structured_data'] = drupal_render($script);
+}

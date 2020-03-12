@@ -1,0 +1,5 @@
+name = 'Structured Data'
+description = 'Provides structured data of articles using JSON-LD'
+package = 'Custom'
+core = '7.x'
+version = '7.x-1.0'
